@@ -1,0 +1,84 @@
+---
+title: "2021 March Madness Win Probabilities"
+author: "By: GLMarch GLMadness (@M_Quang_Nguyen)"
+output: html_document
+---
+
+<br>
+
+```{r, echo = FALSE, message=FALSE}
+library(tidyverse)
+
+cbb21 <-
+  read.csv("https://www.thepredictiontracker.com/ncaabb20.csv") %>%
+  mutate(
+    hwin = ifelse(hscore > rscore, 1, 0),
+    home = tolower(home),
+    road = tolower(road)
+  )
+
+cbb21 <- cbb21[1:3798,]
+
+teamid <- read.csv("/Users/tindata/Desktop/R/Kaggle_March_Madness_2021/MTeamSpellings.csv")
+
+seeds21 <-
+  read.csv("/Users/tindata/Desktop/R/Kaggle_March_Madness_2021/MNCAATourneySeeds.csv") %>%
+  filter(Season == 2021)
+
+teams21 <-
+  data.frame(school = unique(c(cbb21$home, cbb21$road))) %>%
+  left_join(teamid, by = c("school" = "TeamNameSpelling")) %>%
+  filter(TeamID %in% seeds21$TeamID) %>%
+  arrange(school)
+
+m <- glm(hwin ~ line, family = binomial, data = cbb21)
+
+prob <- function(x) {
+  return(exp(coef(m)[1] + x * coef(m)[2]) / (1 + exp(coef(m)[1] + x * coef(m)[2])))
+}
+
+teams <- teams21$school
+margin <- c()
+for (i in 1:length(teams)) {
+  d <- cbb21 %>%
+    filter(home == teams[i] | road == teams[i]) %>%
+    mutate(margin = ifelse(home == teams[i], hscore - rscore, rscore - hscore))
+  margin[i] <- mean(d$margin, na.rm = TRUE)
+}
+
+d <- data.frame(teams, margin)
+
+pred_df <-
+  crossing(team1 = teams21$school, team2 = teams21$school) %>%
+  filter(team1 != team2) %>%
+  left_join(teams21, by = c("team1" = "school")) %>%
+  left_join(teams21, by = c("team2" = "school")) %>%
+  rename(team1id = TeamID.x, team2id = TeamID.y) %>%
+  mutate(ID = ifelse(
+    team1id < team2id,
+    paste("2021", team1id, team2id, sep = "_"),
+    paste("2021", team2id, team1id, sep = "_")
+  )) %>%
+  arrange(ID) %>%
+  left_join(d, by = c("team1" = "teams")) %>%
+  left_join(d, by = c("team2" = "teams")) %>%
+  mutate(diff = margin.x - margin.y) %>%
+  mutate(Pred = prob(diff)) %>% 
+  mutate(team1 = toupper(team1), team2 = toupper(team2)) %>% 
+  rename(`Team 1` = team1, `Team 2` = team2, `P(Team 1 beats Team 2)` = Pred)
+
+
+dd <- read.csv("/Users/tindata/Desktop/R/Kaggle_March_Madness_2021/march_madness_pred_final.csv")
+
+j <- inner_join(pred_df, dd, by = "ID") %>% 
+  mutate(rownum = 1:4556,
+         Pred = ifelse(rownum %% 2 == 0, 1 - Pred, Pred)) %>% 
+  select(`Team 1`, `Team 2`, Pred)
+
+colnames(j) <- c("Team", "Opponent", "Team's Win Probability")
+library(DT)
+
+datatable(j, filter = 'top', options = list(
+  pageLength = 20, autoWidth = TRUE
+))
+```
