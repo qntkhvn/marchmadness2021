@@ -79,7 +79,7 @@ colnames(j) <- c("Team", "Opponent", "Team's Win Probability")
 library(DT)
 
 datatable(j, filter = 'top', options = list(
-  pageLength = 20, autoWidth = TRUE
+  pageLength = 20, autoWidth = TRUE, dom = "ltipr"
 )) %>% 
-  formatRound(columns=c("Team's Win Probability"), digits = 8)
+  formatRound(columns=c("Team's Win Probability"), digits = 8) 
 ```
