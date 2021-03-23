@@ -80,5 +80,6 @@ library(DT)
 
 datatable(j, filter = 'top', options = list(
   pageLength = 20, autoWidth = TRUE
-))
+)) %>% 
+  formatRound(columns=c("Team's Win Probability"), digits = 8)
 ```
